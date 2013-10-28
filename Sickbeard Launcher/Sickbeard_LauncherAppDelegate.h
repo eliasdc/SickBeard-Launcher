@@ -8,24 +8,11 @@
 
 #import <Cocoa/Cocoa.h>
 #import "ConnectionDelegate.h"
-@interface Sickbeard_LauncherAppDelegate : NSObject <NSApplicationDelegate> {
-    NSWindow *window;
-    NSStatusItem *statusItem;
-	IBOutlet NSMenu *statusMenu;
-
-    IBOutlet NSTextField *pathField;
-    
-    NSFileHandle *inFile;
-
-    NSFileHandle *outFile;
-
-}
-
-
+@interface Sickbeard_LauncherAppDelegate : NSObject <NSApplicationDelegate>
+-(IBAction)open:(id)sender;
+-(IBAction)preferences:(id)sender;
+-(IBAction)quit:(id)sender;
 -(IBAction)setSickbeardPath:(id)sender;
-
-@property (retain) NSTask *serverTask;
-
-@property (assign) IBOutlet NSWindow *window;
-
+-(IBAction)savePreferences:(id)sender;
+-(IBAction)cancelPreferences:(id)sender;
 @end

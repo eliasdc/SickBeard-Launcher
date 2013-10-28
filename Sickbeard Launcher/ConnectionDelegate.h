@@ -9,17 +9,6 @@
 #import <Foundation/Foundation.h>
 
 
-@interface ConnectionDelegate : NSObject {
-
-	id target;
-	SEL action;
-	NSMutableData *_data;
-}
-
-- (id) initWithTarget:(id)aTarget perform:(SEL)anAction;
-
-
-@property (retain)id target;
-@property (assign)SEL action;
-@property (retain)NSMutableData *_data;
+@interface ConnectionDelegate : NSObject
+- (id) initWithTarget:(id)aTarget;
 @end

@@ -7,19 +7,29 @@
 //
 
 #import "Sickbeard_LauncherAppDelegate.h"
+@interface Sickbeard_LauncherAppDelegate()
+@property (nonatomic, strong) NSStatusItem *statusItem;
+@property (nonatomic, strong) NSTask *serverTask;
+@property (nonatomic, weak) IBOutlet NSWindow *window;
+@property (nonatomic, weak) IBOutlet NSMenu *statusMenu;
+@property (nonatomic, weak) IBOutlet NSTextField *pathField;
+@end
 
 @implementation Sickbeard_LauncherAppDelegate
-
-@synthesize window;
-
-@synthesize serverTask;
-
-
-
-
-
-
 #pragma mark - IBActions
+
+- (IBAction)open:(id)sender {
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"http://localhost:8081"]];
+}
+
+- (IBAction)preferences:(id)sender {
+    [self.window makeKeyAndOrderFront:self];
+}
+
+- (IBAction)quit:(id)sender {
+    [self stopServer];
+    exit(0);
+}
 
 -(IBAction)setSickbeardPath:(id)sender {
     NSOpenPanel *openPanel = [NSOpenPanel openPanel];
@@ -28,278 +38,99 @@
     [openPanel setCanChooseDirectories:YES];
     [openPanel setAllowsMultipleSelection:NO];
     NSString* fileName;
-    if ( [openPanel runModalForDirectory:nil file:nil] == NSOKButton )
+    if ( [openPanel runModal] == NSFileHandlingPanelOKButton )
     {
-        
-        NSArray* files = [openPanel filenames];
-        
-        fileName = [files objectAtIndex:0];
+        NSArray* files = [openPanel URLs];
+        fileName = [[files objectAtIndex:0] path];
         NSLog(@"filename: %@",fileName);
-        
-        [pathField setStringValue:fileName];
-        
-        [[NSUserDefaults standardUserDefaults]setObject:fileName forKey:@"sickbeardpath"];
-        [[NSUserDefaults standardUserDefaults]synchronize];
-        
+        [self.pathField setStringValue:fileName];
     }
-    
-    
-    [self.window close];
-    
-    
 }
 
+-(IBAction)savePreferences:(id)sender {
+    [[NSUserDefaults standardUserDefaults]setObject:[self.pathField stringValue] forKey:@"sickbeardpath"];
+    [[NSUserDefaults standardUserDefaults]synchronize];
+    [self.window close];
+}
 
-
-
+-(IBAction)cancelPreferences:(id)sender {
+    [self.window close];
+    [self setProperties];
+}
 
 #pragma mark - Sickbeard Process Wrapper
 
-
-
--(void)startServer {
-    NSString *path = [[[NSUserDefaults standardUserDefaults]stringForKey:@"sickbeardpath"]stringByAppendingPathComponent:@"SickBeard.py"];
+- (void)startServer {
+    NSString *path = [[self.pathField stringValue] stringByAppendingPathComponent:@"SickBeard.py"];
+    NSArray *args = [NSArray arrayWithObjects:path,@"--quiet", nil];
     
-    NSArray *args = [NSArray arrayWithObjects:path,@"--quiet",@"--daemon", nil];
-    
-    serverTask = [[NSTask alloc]init];
+    self.serverTask = [[NSTask alloc]init];
     [self.serverTask setLaunchPath:@"/usr/bin/python"];
     [self.serverTask setArguments:args];
-    
     [self.serverTask launch];
-    
-    
 }
-
 
 -(void)stopServer {
     if ([self.serverTask isRunning]) {
         [self.serverTask terminate];
         self.serverTask = nil;
-        [statusItem setImage:[NSImage imageNamed:@"menuicon_bw"]];
-        
     }
 }
-
--(void)restartServer {
-    [self stopServer];
-    [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(startServer) userInfo:nil repeats:NO];
-}
-
-
 
 -(void)checkServer {
     NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:@"http://localhost:8081"]];
-    ConnectionDelegate *_delegate = [[ConnectionDelegate alloc]initWithTarget:self perform:@selector(didGetServerResponse:)];
+    ConnectionDelegate *_delegate = [[ConnectionDelegate alloc]initWithTarget:self];
     [NSURLConnection connectionWithRequest:req delegate:_delegate];
-    [_delegate release];
 }
 
-
--(void)didGetServerResponse:(NSData*)data {
-    NSString *msg = [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];
-    if ([msg length]>0) {
-        NSLog(@"Server OK.");
-        [statusItem setImage:[NSImage imageNamed:@"menuicon"]];
-        
-    }
-    [msg release];
-    
-    
-}
-
--(void)serverUnavailable:(NSNotification*)aNotification {
-    
-    if ([[NSUserDefaults standardUserDefaults]stringForKey:@"sickbeardpath"]==nil) {
+-(void)serverUnavailable {
+    if ([[NSUserDefaults standardUserDefaults]stringForKey:@"sickbeardpath"] == nil) {
         [self.window makeKeyAndOrderFront:self];
         return;
     }
-    
-    
-    NSLog(@"server unavailable ! \n ");
-    [statusItem setImage:[NSImage imageNamed:@"menuicon_bw"]];
-    
-    
+    NSLog(@"Server unavailable!");
+    [self.statusItem setImage:[NSImage imageNamed:@"menuicon_bw"]];
+    [self quit:nil];
 }
 
-
-
-
+-(void)serverAvailable {
+    NSLog(@"Server available!");
+}
 
 #pragma mark - NSApp Delegate
 
-
--(void)awakeFromNib {
+-(void)setProperties {
     NSString *path = [[NSUserDefaults standardUserDefaults]stringForKey:@"sickbeardpath"];
     if (path != nil) {
-        [pathField setStringValue:path];
+        [self.pathField setStringValue:path];
     }
+}
+
+-(void)awakeFromNib {
+    [self setProperties];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
+    self.statusItem = [[NSStatusBar systemStatusBar]statusItemWithLength:NSVariableStatusItemLength];
+	[self.statusItem setMenu:self.statusMenu];
+	[self.statusItem setHighlightMode:YES];
+	[self.statusItem setImage:[NSImage imageNamed:@"menuicon_bw"]];
     
-    
-    
-    statusItem = [[[NSStatusBar systemStatusBar]statusItemWithLength:NSVariableStatusItemLength]retain];
-	[statusItem setMenu:statusMenu];
-	[statusItem setHighlightMode:YES];
-	[statusItem setImage:[NSImage imageNamed:@"menuicon_bw"]];
-	[self updateSystemMenu];
-    
-    
-    
-    if ([[NSUserDefaults standardUserDefaults]stringForKey:@"sickbeardpath"]==nil) {
-        [self.window makeKeyAndOrderFront:self];
-        return;
+    NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:@"http://localhost:8081"]];
+    NSError * error;
+    [NSURLConnection sendSynchronousRequest:req returningResponse:nil error:&error];
+    if (error != nil) {
+        [self startServer];
+    } else {
+        NSLog(@"SickBeard allready started");
+        [self open:nil];
     }
-    
-    [self startServer];
-    
+    [self.statusItem setImage:[NSImage imageNamed:@"menuicon"]];
     [NSTimer scheduledTimerWithTimeInterval:5.0 target:self selector:@selector(checkServer) userInfo:nil repeats:YES];
-    
-    [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(serverUnavailable:) name:@"serverUnavailableNotification" object:nil];
 }
-
 
 -(void)applicationWillTerminate:(NSNotification *)notification {
     [self stopServer];
 }
-
-
--(void)updateSystemMenu {
-	id element;
-	
-	for (NSMenuItem *i in [statusMenu itemArray]) {
-		[statusMenu removeItem:i];
-	}
-	
-    
-    
-    
-	
-	//*
-	//* Updates
-	//*
-	// seperator
-	//item =[NSMenuItem separatorItem];
-	//[statusMenu addItem:item];
-	
-    
-    NSMenuItem *item = [[NSMenuItem alloc]init];
-    [item setTitle:@"Open SickBeard"];
-	[item setTag:4];
-	[item setEnabled:YES];
-	[item setAction:@selector(handleSystemMenuEvent:)];
-	[statusMenu addItem:item];
-	[item release];
-    
-    [statusMenu addItem:[NSMenuItem separatorItem]];
-    
-    
-    
-    
-    
-    //*
-	//* Preferences
-	//*
-	
-    item = [[NSMenuItem alloc]init];
-    [item setTitle:@"Preferences..."];
-    [item setTag:1];
-    [item setEnabled:YES];
-    [item setAction:@selector(handleSystemMenuEvent:)];
-    [statusMenu addItem:item];
-    [item release];
-    
-    [statusMenu addItem:[NSMenuItem separatorItem]];
-    
-    
-	
-    item = [[NSMenuItem alloc]init];
-    [item setTitle:@"Start "];
-	[item setTag:5];
-	[item setEnabled:YES];
-	[item setAction:@selector(handleSystemMenuEvent:)];
-	[statusMenu addItem:item];
-	[item release];
-    
-    item = [[NSMenuItem alloc]init];
-    [item setTitle:@"Stop "];
-	[item setTag:6];
-	[item setEnabled:YES];
-	[item setAction:@selector(handleSystemMenuEvent:)];
-	[statusMenu addItem:item];
-	[item release];
-    
-    item = [[NSMenuItem alloc]init];
-	[item setTitle:@"Restart "];
-	[item setTag:2];
-	[item setEnabled:YES];
-	[item setAction:@selector(handleSystemMenuEvent:)];
-	[statusMenu addItem:item];
-    [item release];
-    
-    
-	
-	[statusMenu addItem:[NSMenuItem separatorItem]];
-	
-	
-	item = [[NSMenuItem alloc]init];
-	[item setTitle:@"Quit"];
-	[item setTag:3];
-	[item setEnabled:YES];
-    [item setTarget:self];
-	[item setAction:@selector(handleSystemMenuEvent:)];
-	[statusMenu addItem:item];
-	[item release];
-	
-	
-	
-}
-
--(void)handleSystemMenuEvent:(NSMenuItem *)item {
-	switch ([item tag]) {
-            
-		case 1:
-			[self.window makeKeyAndOrderFront:self];
-			
-			break;
-		case 2:
-            
-			[self restartServer];
-			break;
-		case 3:
-            [self stopServer];
-			exit(0);
-			break;
-            
-        case 4:
-            [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"http://localhost:8081"]];
-            break;
-            
-        case 5:
-            [self startServer];
-            break;
-            
-        case 6:
-            [self stopServer];
-            break;
-		default:
-            
-			[self updateSystemMenu];
-			break;
-	}
-	
-}
-
-
-
-
-- (void)dealloc {
-    self.serverTask = nil;
-    [super dealloc];
-}
-
-
 @end
