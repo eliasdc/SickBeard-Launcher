@@ -19,7 +19,7 @@
 #pragma mark - IBActions
 
 - (IBAction)open:(id)sender {
-    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"http://localhost:8081"]];
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"http://localhost:8082"]];
 }
 
 - (IBAction)preferences:(id)sender {
@@ -78,7 +78,7 @@
 }
 
 -(void)checkServer {
-    NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:@"http://localhost:8081"]];
+    NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:@"http://localhost:8082"]];
     ConnectionDelegate *_delegate = [[ConnectionDelegate alloc]initWithTarget:self];
     [NSURLConnection connectionWithRequest:req delegate:_delegate];
 }
@@ -117,7 +117,7 @@
 	[self.statusItem setHighlightMode:YES];
 	[self.statusItem setImage:[NSImage imageNamed:@"menuicon_bw"]];
     
-    NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:@"http://localhost:8081"]];
+    NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:@"http://localhost:8082"]];
     NSError * error;
     [NSURLConnection sendSynchronousRequest:req returningResponse:nil error:&error];
     if (error != nil) {
